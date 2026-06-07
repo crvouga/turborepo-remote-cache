@@ -64,7 +64,6 @@ async function main(): Promise<void> {
     'dev';
   const project =
     process.env['DOPPLER_PROJECT']?.trim() || '(from doppler.yaml)';
-  const strict = isCi();
 
   console.log(`Doppler secrets check (project=${project}, config=${config})`);
 
