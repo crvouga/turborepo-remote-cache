@@ -1,0 +1,58 @@
+# Agent Notes
+
+## Hard Rules
+
+- **Never patch dependencies.** CI should reject bun/pnpm patch mechanisms.
+- **Never disable structural size limits** in eslint config or source files. Refactor instead.
+
+## Architecture
+
+Self-hosted Turborepo Remote Cache on Cloudflare Workers. Artifacts live in Backblaze B2 via `@pkgs/object-store` (`ObjectStoreImplS3`). Only `DOPPLER_TOKEN` is a Worker secret; B2 creds and `TURBO_TOKEN` load from Doppler at boot.
+
+## Doppler secrets (source of truth)
+
+Canonical registry: [`scripts/doppler-secrets-registry.ts`](scripts/doppler-secrets-registry.ts)
+
+| Config | Purpose                                                           |
+| ------ | ----------------------------------------------------------------- |
+| `dev`  | Local dev + CI (`check:doppler-secrets`)                          |
+| `prd`  | Production deploy (`check:doppler-secrets:prd`, `bun run deploy`) |
+
+Both configs must carry the same required keys. `bun run setup` runs `ensure-doppler-secrets.ts` to write derived defaults (`TURBO_API`, `TURBO_TEAM`, `TURBO_CACHE`) into **dev** and **prd** when missing.
+
+Required keys (manual): `TURBO_TOKEN`, B2 `B2_*`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+
+## Scripts
+
+| Script                              | Purpose                                          |
+| ----------------------------------- | ------------------------------------------------ |
+| `bun run setup`                     | `.dev.vars` + ensure Doppler defaults in dev/prd |
+| `bun run check:doppler-secrets`     | Verify dev config (CI gate)                      |
+| `bun run check:doppler-secrets:prd` | Verify prd config (deploy gate)                  |
+| `bun run deploy`                    | `DOPPLER_CONFIG=prd` → wrangler secret + deploy  |
+
+## CI/CD
+
+Single workflow: `.github/workflows/deployment-pipeline.yml`
+
+1. **check** — Doppler dev secrets + `bun run check` on every push/PR
+2. **deploy** — Doppler prd secrets + deploy on main push only
+
+GitHub secret: `DOPPLER_SERVICE_TOKEN` only. Seed: `bun run gh:seed-doppler-service-token`.
+
+## Client usage
+
+```bash
+export TURBO_API=https://turborepo.chrisvouga.dev
+export TURBO_TOKEN=<same as Doppler TURBO_TOKEN>
+export TURBO_TEAM=local
+turbo run build --cache=remote:rw
+```
+
+## Local dev
+
+```bash
+bun install
+bun run setup
+bun run dev   # wrangler dev :8787
+```

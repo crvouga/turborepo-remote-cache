@@ -1,0 +1,52 @@
+{
+  "$schema": "https://v2-9-16.turborepo.dev/schema.json",
+  "ui": "stream",
+  "concurrency": "6",
+  "globalDependencies": ["bun.lock", "tsconfig.json", "package.json"],
+  "globalPassThroughEnv": ["CLOUDFLARE_*", "DOPPLER_*", "TURBO_*"],
+  "tasks": {
+    "setup": {
+      "cache": false,
+      "inputs": ["scripts/setup-*.ts"],
+      "outputs": []
+    },
+    "dev": {
+      "dependsOn": ["setup"],
+      "persistent": true,
+      "cache": false
+    },
+    "tc": {
+      "dependsOn": ["^tc"],
+      "inputs": ["**/*.ts", "tsconfig.json", "../../tsconfig.json"],
+      "outputLogs": "new-only",
+      "outputs": []
+    },
+    "lint": {
+      "dependsOn": ["^tc"],
+      "inputs": ["**/*.ts", "eslint.config.js"],
+      "outputLogs": "new-only",
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^tc"],
+      "inputs": ["**/*.ts", "**/*.test.ts"],
+      "outputLogs": "new-only",
+      "outputs": []
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**/*.ts", "wrangler.toml"],
+      "outputLogs": "new-only",
+      "outputs": []
+    },
+    "deploy": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
+    "//#ci:format": {
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputs": [],
+      "outputLogs": "new-only"
+    }
+  }
+}
