@@ -1,9 +1,12 @@
-import { DopplerCli } from '@pkgs/doppler';
+import { VaultCli } from '@pkgs/vault';
 import { renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { resolveDopplerScope } from '@scripts/doppler-yaml-defaults';
+import {
+  readVaultYamlDefaults,
+  resolveVaultScope,
+} from '@scripts/vault-yaml-defaults';
 
 const apiRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outPath = join(apiRoot, '.dev.vars');
@@ -16,30 +19,39 @@ function encodeDevVarValue(value: string): string {
     .replaceAll('\n', '\\n')}"`;
 }
 
-function tokenRequiresScopeParams(token: string): boolean {
-  return !token.startsWith('dp.st.');
-}
-
-type DopplerScope = {
+type VaultScope = {
   token: string;
+  addr: string;
   project: string;
   config: string;
 };
 
-function resolveScope(): DopplerScope {
-  const cli = new DopplerCli();
+function resolveScope(): VaultScope {
+  let yamlDefaults: ReturnType<typeof readVaultYamlDefaults>;
+  try {
+    yamlDefaults = readVaultYamlDefaults();
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`[setup-dev-vars] ${msg}\n`);
+    process.exit(1);
+  }
+
+  const cli = new VaultCli({
+    addr: yamlDefaults.addr,
+    mount: yamlDefaults.mount,
+  });
   let token: string;
   try {
     const resolved = cli.resolveToken();
     if (resolved.source === 'cli') {
       process.stdout.write(
-        '[setup-dev-vars] DOPPLER_TOKEN not set in env; using `doppler configure get token --plain`.\n'
+        '[setup-dev-vars] VAULT_TOKEN not set in env; using `vault print token`.\n'
       );
     }
     token = resolved.token;
   } catch {
     process.stderr.write(
-      '[setup-dev-vars] DOPPLER_TOKEN is required. Set it in env, or login/configure Doppler CLI.\n'
+      '[setup-dev-vars] VAULT_TOKEN is required. Set it in env, or run `vault login`.\n'
     );
     process.exit(1);
   }
@@ -47,11 +59,9 @@ function resolveScope(): DopplerScope {
   let project: string;
   let config: string;
   try {
-    ({ project, config } = resolveDopplerScope({
-      envProject: process.env['DOPPLER_PROJECT'],
-      envConfig: process.env['DOPPLER_CONFIG'],
-      configureProject: cli.tryConfigureGetProjectPlain(),
-      configureConfig: cli.tryConfigureGetConfigPlain(),
+    ({ project, config } = resolveVaultScope({
+      envProject: process.env['VAULT_PROJECT'],
+      envConfig: process.env['VAULT_CONFIG'],
     }));
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -59,21 +69,25 @@ function resolveScope(): DopplerScope {
     process.exit(1);
   }
 
-  if (tokenRequiresScopeParams(token)) {
-    process.stdout.write(
-      `[setup-dev-vars] scope: project=${project} config=${config}\n`
-    );
-  }
+  process.stdout.write(
+    `[setup-dev-vars] scope: addr=${yamlDefaults.addr} project=${project} config=${config}\n`
+  );
 
-  return { token, project, config };
+  return {
+    token,
+    addr: yamlDefaults.addr,
+    project,
+    config,
+  };
 }
 
 async function main(): Promise<void> {
-  const { token, project, config } = resolveScope();
+  const { token, addr, project, config } = resolveScope();
   const lines: string[] = [
-    `DOPPLER_TOKEN=${encodeDevVarValue(token)}`,
-    `DOPPLER_PROJECT=${encodeDevVarValue(project)}`,
-    `DOPPLER_CONFIG=${encodeDevVarValue(config)}`,
+    `VAULT_TOKEN=${encodeDevVarValue(token)}`,
+    `VAULT_ADDR=${encodeDevVarValue(addr)}`,
+    `VAULT_PROJECT=${encodeDevVarValue(project)}`,
+    `VAULT_CONFIG=${encodeDevVarValue(config)}`,
   ];
 
   const body = `${lines.join('\n')}\n`;

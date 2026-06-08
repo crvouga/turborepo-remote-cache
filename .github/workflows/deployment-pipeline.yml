@@ -1,9 +1,10 @@
 # Single workflow: CI checks on every push/PR, deploy on main after checks pass.
-# GitHub repo secret: DOPPLER_SERVICE_TOKEN (project Doppler token for CI/deploy).
+# CI authenticates to Vault via GitHub OIDC (no stored token).
 name: Deployment Pipeline
 
 permissions:
   contents: read
+  id-token: write
 
 on:
   push:
@@ -12,7 +13,6 @@ on:
   workflow_dispatch:
 
 env:
-  DOPPLER_TOKEN: ${{ secrets.DOPPLER_SERVICE_TOKEN }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -29,26 +29,33 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - name: Install Doppler CLI
-        run: |
-          set -euo pipefail
-          for attempt in 1 2 3; do
-            if curl -fsSL --retry 5 --retry-all-errors \
-              --connect-timeout 10 --max-time 120 \
-              https://cli.doppler.com/install.sh \
-              | sudo sh; then
-              exit 0
-            fi
-            echo "Doppler CLI install attempt ${attempt}/3 failed; retrying..." >&2
-            sleep $((attempt * 5))
-          done
-          echo "ERROR: Doppler CLI install failed after 3 attempts" >&2
-          exit 1
-      - name: Verify Doppler secrets (dev)
+      - name: Import Vault secrets (dev)
+        uses: hashicorp/vault-action@v3
+        with:
+          url: https://secret-store.chrisvouga.dev
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: https://secret-store.chrisvouga.dev
+          secrets: |
+            secret/data/personal/dev TURBO_TOKEN | TURBO_TOKEN ;
+            secret/data/personal/dev TURBO_API | TURBO_API ;
+            secret/data/personal/dev TURBO_TEAM | TURBO_TEAM ;
+            secret/data/personal/dev TURBO_CACHE | TURBO_CACHE ;
+            secret/data/personal/dev B2_S3_ENDPOINT | B2_S3_ENDPOINT ;
+            secret/data/personal/dev B2_S3_REGION | B2_S3_REGION ;
+            secret/data/personal/dev B2_S3_ACCESS_KEY_ID | B2_S3_ACCESS_KEY_ID ;
+            secret/data/personal/dev B2_S3_SECRET_ACCESS_KEY | B2_S3_SECRET_ACCESS_KEY ;
+            secret/data/personal/dev B2_BUCKET | B2_BUCKET ;
+            secret/data/personal/dev CLOUDFLARE_API_TOKEN | CLOUDFLARE_API_TOKEN ;
+            secret/data/personal/dev CLOUDFLARE_ACCOUNT_ID | CLOUDFLARE_ACCOUNT_ID
+      - name: Verify Vault secrets (dev)
         env:
           CI: true
           GITHUB_ACTIONS: true
-        run: bun run check:doppler-secrets
+          VAULT_CONFIG: dev
+          VAULT_PROJECT: personal
+        run: bun run scripts/check-vault-secrets.ts
       - name: Turbo CI (format, tc, lint, test, build)
         run: bun run check
 
@@ -67,30 +74,37 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
-      - name: Install Doppler CLI
-        run: |
-          set -euo pipefail
-          for attempt in 1 2 3; do
-            if curl -fsSL --retry 5 --retry-all-errors \
-              --connect-timeout 10 --max-time 120 \
-              https://cli.doppler.com/install.sh \
-              | sudo sh; then
-              exit 0
-            fi
-            echo "Doppler CLI install attempt ${attempt}/3 failed; retrying..." >&2
-            sleep $((attempt * 5))
-          done
-          echo "ERROR: Doppler CLI install failed after 3 attempts" >&2
-          exit 1
-      - name: Verify Doppler secrets (prd)
+      - name: Import Vault secrets (prd)
+        uses: hashicorp/vault-action@v3
+        with:
+          url: https://secret-store.chrisvouga.dev
+          method: jwt
+          path: jwt
+          role: github-actions
+          jwtGithubAudience: https://secret-store.chrisvouga.dev
+          secrets: |
+            secret/data/personal/prd TURBO_TOKEN | TURBO_TOKEN ;
+            secret/data/personal/prd TURBO_API | TURBO_API ;
+            secret/data/personal/prd TURBO_TEAM | TURBO_TEAM ;
+            secret/data/personal/prd TURBO_CACHE | TURBO_CACHE ;
+            secret/data/personal/prd B2_S3_ENDPOINT | B2_S3_ENDPOINT ;
+            secret/data/personal/prd B2_S3_REGION | B2_S3_REGION ;
+            secret/data/personal/prd B2_S3_ACCESS_KEY_ID | B2_S3_ACCESS_KEY_ID ;
+            secret/data/personal/prd B2_S3_SECRET_ACCESS_KEY | B2_S3_SECRET_ACCESS_KEY ;
+            secret/data/personal/prd B2_BUCKET | B2_BUCKET ;
+            secret/data/personal/prd CLOUDFLARE_API_TOKEN | CLOUDFLARE_API_TOKEN ;
+            secret/data/personal/prd CLOUDFLARE_ACCOUNT_ID | CLOUDFLARE_ACCOUNT_ID
+      - name: Verify Vault secrets (prd)
         env:
           CI: true
           GITHUB_ACTIONS: true
-        run: bun run check:doppler-secrets:prd
+          VAULT_CONFIG: prd
+          VAULT_PROJECT: personal
+        run: bun run scripts/check-vault-secrets.ts
       - name: Deploy Worker
-        run: bun run deploy
+        run: bun run --filter @apps/api deploy
       - name: Smoke test remote cache
         env:
           CI: true
           GITHUB_ACTIONS: true
-        run: bun run smoke:prd
+        run: bun run scripts/smoke-test-cache.ts

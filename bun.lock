@@ -44,15 +44,6 @@
         "typescript": "catalog:",
       },
     },
-    "pkgs/doppler": {
-      "name": "@pkgs/doppler",
-      "version": "0.0.0",
-      "devDependencies": {
-        "@types/bun": "catalog:",
-        "eslint-plugin-lingui": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
     "pkgs/logger": {
       "name": "@pkgs/logger",
       "version": "0.0.0",
@@ -79,8 +70,8 @@
       "name": "@pkgs/secret-store",
       "version": "0.0.0",
       "dependencies": {
-        "@pkgs/doppler": "workspace:*",
         "@pkgs/secret-string": "workspace:*",
+        "@pkgs/vault": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -90,6 +81,15 @@
     },
     "pkgs/secret-string": {
       "name": "@pkgs/secret-string",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "eslint-plugin-lingui": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "pkgs/vault": {
+      "name": "@pkgs/vault",
       "version": "0.0.0",
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -310,8 +310,6 @@
 
     "@pkgs/assert": ["@pkgs/assert@workspace:pkgs/assert"],
 
-    "@pkgs/doppler": ["@pkgs/doppler@workspace:pkgs/doppler"],
-
     "@pkgs/logger": ["@pkgs/logger@workspace:pkgs/logger"],
 
     "@pkgs/object-store": ["@pkgs/object-store@workspace:pkgs/object-store"],
@@ -319,6 +317,8 @@
     "@pkgs/secret-store": ["@pkgs/secret-store@workspace:pkgs/secret-store"],
 
     "@pkgs/secret-string": ["@pkgs/secret-string@workspace:pkgs/secret-string"],
+
+    "@pkgs/vault": ["@pkgs/vault@workspace:pkgs/vault"],
 
     "@poppinss/colors": ["@poppinss/colors@4.1.6", "", { "dependencies": { "kleur": "^4.1.5" } }, "sha512-H9xkIdFswbS8n1d6vmRd8+c10t2Qe+rZITbbDHHkQixH5+2x1FDGmi/0K+WgWiqQFKPSlIYB7jlH6Kpfn6Fleg=="],
 

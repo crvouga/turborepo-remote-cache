@@ -1,5 +1,5 @@
 {
-  "name": "@pkgs/doppler",
+  "name": "@pkgs/vault",
   "version": "0.0.0",
   "private": true,
   "exports": {

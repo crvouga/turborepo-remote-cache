@@ -2,34 +2,31 @@
 /**
  * Read or push Turbo *client* secrets for monorepos that use this cache.
  *
- * Source of truth: this repo's Doppler (`personal` project). Values are read
- * via `doppler run` (env injection) or the Doppler CLI (`--mirror-prd`).
+ * Source of truth: this repo's Vault (`personal` project). Values are read
+ * via `vault run` (env injection) or the Vault CLI (`--mirror-prd`).
  *
  * Usage:
  *   bun run seed:turbo-client
- *     Print shell exports + `doppler secrets set` commands for another project.
+ *     Print shell exports + `vault kv patch` commands for another project.
  *
  *   bun run seed:turbo-client -- --target-project gamezilla --target-config dev
- *     Push TURBO_* client secrets into another Doppler project/config.
+ *     Push TURBO_* client secrets into another Vault project/config.
  *
  *   bun run seed:turbo-client -- --target-project gamezilla --all-configs
  *     Push into dev and prd on the consumer project.
  *
  *   bun run seed:turbo-client:mirror-prd
- *     Copy client TURBO_* secrets from dev → prd in this repo's Doppler project.
+ *     Copy client TURBO_* secrets from dev → prd in this repo's Vault project.
  */
-import { spawnSync } from 'node:child_process';
-import { join } from 'node:path';
+import { VaultCli } from '@pkgs/vault';
 
 import {
-  DOPPLER_SETUP_CONFIGS,
   TURBO_CLIENT_OPTIONAL_KEYS,
   TURBO_CLIENT_REQUIRED_KEYS,
+  VAULT_CONFIGS,
   turboClientRegistryDefaults,
-} from './doppler-secrets-registry';
-import { readDopplerYamlDefaults } from './doppler-yaml-defaults';
-
-const REPO_ROOT = join(import.meta.dirname, '..');
+} from './vault-secrets-registry';
+import { readVaultYamlDefaults } from './vault-yaml-defaults';
 
 type CliOptions = {
   readonly mirrorPrd: boolean;
@@ -44,34 +41,6 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function runOrFail(
-  command: string,
-  args: readonly string[],
-  label: string,
-  options?: { input?: string }
-): string {
-  const result = spawnSync(command, args, {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-    input: options?.input,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    env: process.env,
-  });
-
-  if (result.error !== undefined) {
-    fail(`failed to spawn \`${command}\`: ${result.error.message}`);
-  }
-
-  if (result.status !== 0) {
-    const detail = (result.stderr ?? result.stdout ?? '').trim();
-    fail(
-      `${label} failed (exit ${String(result.status ?? 'unknown')})${detail.length > 0 ? `: ${detail}` : ''}`
-    );
-  }
-
-  return (result.stdout ?? '').trim();
-}
-
 function parseCliOptions(): CliOptions {
   const args = process.argv.slice(2);
   let mirrorPrd = false;
@@ -79,8 +48,8 @@ function parseCliOptions(): CliOptions {
   let targetProject: string | null = null;
   let targetConfig = 'dev';
   let sourceConfig =
-    process.env['DOPPLER_CONFIG']?.trim() ||
-    process.env['DOPPLER_ENVIRONMENT']?.trim() ||
+    process.env['VAULT_CONFIG']?.trim() ||
+    process.env['VAULT_ENVIRONMENT']?.trim() ||
     'dev';
 
   for (let i = 0; i < args.length; i++) {
@@ -148,7 +117,7 @@ function resolveClientSecretsFromEnv(): Record<string, string> {
     const value = fromEnv ?? fallback ?? null;
     if (value === null || value.length === 0) {
       fail(
-        `${key} is missing in env. Run via \`bun run seed:turbo-client\` (doppler run) or set it in Doppler config ${process.env['DOPPLER_CONFIG'] ?? 'dev'}.`
+        `${key} is missing in env. Run via \`bun run seed:turbo-client\` (vault run) or set it in Vault config ${process.env['VAULT_CONFIG'] ?? 'dev'}.`
       );
     }
     secrets[key] = value;
@@ -164,43 +133,8 @@ function resolveClientSecretsFromEnv(): Record<string, string> {
   return secrets;
 }
 
-function getSecretPlain(
-  project: string,
-  config: string,
-  key: string
-): string | null {
-  const result = spawnSync(
-    'doppler',
-    ['secrets', 'get', key, '--plain', '-p', project, '-c', config],
-    {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env,
-    }
-  );
-  if (result.status !== 0) {
-    return null;
-  }
-  const out = (result.stdout ?? '').trim();
-  return out.length > 0 ? out : null;
-}
-
-function setSecretPlain(
-  project: string,
-  config: string,
-  key: string,
-  value: string
-): void {
-  runOrFail(
-    'doppler',
-    ['secrets', 'set', key, '-p', project, '-c', config],
-    `doppler secrets set ${key}`,
-    { input: value }
-  );
-}
-
-function resolveClientSecretsFromDoppler(
+function resolveClientSecretsFromVault(
+  cli: VaultCli,
   project: string,
   config: string
 ): Record<string, string> {
@@ -208,21 +142,21 @@ function resolveClientSecretsFromDoppler(
   const secrets: Record<string, string> = {};
 
   for (const key of TURBO_CLIENT_REQUIRED_KEYS) {
-    const fromDoppler = getSecretPlain(project, config, key);
+    const fromVault = cli.kvGetField(project, config, key);
     const fallback = defaults[key];
-    const value = fromDoppler ?? fallback ?? null;
+    const value = fromVault ?? fallback ?? null;
     if (value === null || value.length === 0) {
       fail(
-        `${project}/${config} is missing ${key}. Set it in this cache repo's Doppler first.`
+        `${project}/${config} is missing ${key}. Set it in this cache repo's Vault first.`
       );
     }
     secrets[key] = value;
   }
 
   for (const key of TURBO_CLIENT_OPTIONAL_KEYS) {
-    const fromDoppler = getSecretPlain(project, config, key);
-    if (fromDoppler !== null && fromDoppler.length > 0) {
-      secrets[key] = fromDoppler;
+    const fromVault = cli.kvGetField(project, config, key);
+    if (fromVault !== null && fromVault.length > 0) {
+      secrets[key] = fromVault;
     }
   }
 
@@ -240,11 +174,12 @@ function printClientSecrets(
   secrets: Record<string, string>,
   sourceLabel: string,
   targetProject: string | null,
-  targetConfig: string
+  targetConfig: string,
+  mount: string
 ): void {
   console.log(`# Turbo remote cache client secrets (${sourceLabel})`);
   console.log(
-    '# Self-hosted cache — set these in consumer monorepo Doppler dev + prd.'
+    '# Self-hosted cache — set these in consumer monorepo Vault dev + prd.'
   );
   console.log('');
 
@@ -260,9 +195,9 @@ function printClientSecrets(
   }
 
   console.log('');
-  console.log('# Doppler (consumer monorepo — run from any directory):');
-  const dopplerProject = targetProject ?? '<consumer-doppler-project>';
-  for (const config of DOPPLER_SETUP_CONFIGS) {
+  console.log('# Vault (consumer monorepo — run from any directory):');
+  const vaultProject = targetProject ?? '<consumer-vault-project>';
+  for (const config of VAULT_CONFIGS) {
     console.log(`# config=${config}`);
     for (const key of [
       ...TURBO_CLIENT_REQUIRED_KEYS,
@@ -271,7 +206,7 @@ function printClientSecrets(
       const value = secrets[key];
       if (value !== undefined) {
         console.log(
-          `doppler secrets set ${key}=${shellEscape(value)} -p ${dopplerProject} -c ${config}`
+          `vault kv patch -mount=${mount} ${vaultProject}/${config} ${key}=${shellEscape(value)}`
         );
       }
     }
@@ -281,7 +216,7 @@ function printClientSecrets(
   if (targetProject === null) {
     console.log(
       '# Push automatically:\n' +
-        `bun run seed:turbo-client -- --target-project ${dopplerProject} --target-config ${targetConfig}`
+        `bun run seed:turbo-client -- --target-project ${vaultProject} --target-config ${targetConfig}`
     );
   }
 
@@ -291,25 +226,23 @@ function printClientSecrets(
 }
 
 function pushClientSecrets(
+  cli: VaultCli,
   secrets: Record<string, string>,
   targetProject: string,
   targetConfig: string
 ): void {
-  runOrFail('doppler', ['--version'], 'doppler CLI check');
-
   for (const [key, value] of Object.entries(secrets)) {
-    setSecretPlain(targetProject, targetConfig, key, value);
+    cli.kvUpsertField(targetProject, targetConfig, key, value);
     console.log(`set ${targetProject}/${targetConfig} ${key}`);
   }
 
   console.log(
-    `Turbo client secrets seeded on Doppler project=${targetProject} config=${targetConfig}`
+    `Turbo client secrets seeded on Vault project=${targetProject} config=${targetConfig}`
   );
 }
 
-function mirrorDevToPrd(project: string): void {
-  runOrFail('doppler', ['--version'], 'doppler CLI check');
-  const secrets = resolveClientSecretsFromDoppler(project, 'dev');
+function mirrorDevToPrd(cli: VaultCli, project: string): void {
+  const secrets = resolveClientSecretsFromVault(cli, project, 'dev');
 
   for (const key of [
     ...TURBO_CLIENT_REQUIRED_KEYS,
@@ -317,7 +250,7 @@ function mirrorDevToPrd(project: string): void {
   ]) {
     const value = secrets[key];
     if (value === undefined) continue;
-    setSecretPlain(project, 'prd', key, value);
+    cli.kvUpsertField(project, 'prd', key, value);
     console.log(`mirrored dev → prd ${key}`);
   }
 
@@ -329,15 +262,22 @@ function mirrorDevToPrd(project: string): void {
 function main(): void {
   const options = parseCliOptions();
   let project: string;
+  let mount: string;
+  let addr: string;
   try {
-    project = readDopplerYamlDefaults().project;
+    const yaml = readVaultYamlDefaults();
+    project = yaml.project;
+    mount = yaml.mount;
+    addr = yaml.addr;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     fail(msg);
   }
 
+  const cli = new VaultCli({ addr, mount });
+
   if (options.mirrorPrd) {
-    mirrorDevToPrd(project);
+    mirrorDevToPrd(cli, project);
     return;
   }
 
@@ -346,15 +286,15 @@ function main(): void {
 
   if (options.targetProject !== null) {
     const configs = options.allConfigs
-      ? [...DOPPLER_SETUP_CONFIGS]
+      ? [...VAULT_CONFIGS]
       : [options.targetConfig];
     for (const config of configs) {
-      pushClientSecrets(secrets, options.targetProject, config);
+      pushClientSecrets(cli, secrets, options.targetProject, config);
     }
     return;
   }
 
-  printClientSecrets(secrets, sourceLabel, null, options.targetConfig);
+  printClientSecrets(secrets, sourceLabel, null, options.targetConfig, mount);
 }
 
 main();

@@ -1,16 +1,14 @@
 /**
- * Verifies required Doppler secrets for the Turborepo remote cache repo.
+ * Verifies required Vault secrets for the Turborepo remote cache repo.
  *
- * CI: `DOPPLER_SERVICE_TOKEN` → `doppler run` (dev config) before `bun run check`.
- * Deploy: re-run against `prd` before `wrangler deploy`.
+ * CI: GitHub OIDC → vault-action injects env vars before this script runs.
+ * Local: `vault run -- bun run scripts/check-vault-secrets.ts`.
  */
-import { createDopplerSecretStoreForScripts } from '@pkgs/secret-store/create-doppler-secret-store-for-scripts';
-
 import {
-  DOPPLER_SECRET_REGISTRY,
-  DopplerSecretKey,
+  VAULT_SECRET_REGISTRY,
+  VaultSecretKey,
   validateOptionalSecretFormat,
-} from './doppler-secrets-registry';
+} from './vault-secrets-registry';
 import { verifyB2S3Credentials } from './verify-b2-s3';
 
 function isCi(): boolean {
@@ -24,15 +22,21 @@ function isCi(): boolean {
 function fail(message: string): never {
   console.error('');
   console.error('════════════════════════════════════════════════════════');
-  console.error('  Doppler secrets check FAILED');
+  console.error('  Vault secrets check FAILED');
   console.error('════════════════════════════════════════════════════════');
   console.error(message);
   console.error('');
   console.error('Run `bun run setup` to apply derived defaults, then set');
-  console.error('remaining secrets via `doppler secrets set KEY=value`.');
-  console.error('Registry: scripts/doppler-secrets-registry.ts');
+  console.error(
+    'remaining secrets via `vault kv patch secret/personal/<config> KEY=value`.'
+  );
+  console.error('Registry: scripts/vault-secrets-registry.ts');
   console.error('');
   process.exit(1);
+}
+
+function readEnvSecret(key: string): string {
+  return process.env[key]?.trim() ?? '';
 }
 
 async function smokeCacheStatus(
@@ -59,27 +63,21 @@ async function smokeCacheStatus(
 }
 
 async function main(): Promise<void> {
-  const config =
-    process.env['DOPPLER_CONFIG']?.trim() ||
-    process.env['DOPPLER_ENVIRONMENT']?.trim() ||
-    'dev';
-  const project =
-    process.env['DOPPLER_PROJECT']?.trim() || '(from doppler.yaml)';
+  const config = process.env['VAULT_CONFIG']?.trim() || 'dev';
+  const project = process.env['VAULT_PROJECT']?.trim() || 'personal';
 
-  console.log(`Doppler secrets check (project=${project}, config=${config})`);
+  console.log(`Vault secrets check (project=${project}, config=${config})`);
 
-  const store = createDopplerSecretStoreForScripts();
   const missingRequired: string[] = [];
   const optionalWarnings: string[] = [];
 
-  for (const def of DOPPLER_SECRET_REGISTRY) {
-    const value = await store.getOptional(def.key);
-    const raw = value?.readSecretValue().trim() ?? '';
+  for (const def of VAULT_SECRET_REGISTRY) {
+    const raw = readEnvSecret(def.key);
 
     if (def.required) {
       if (raw.length === 0) {
         missingRequired.push(`  • ${def.key} — ${def.hint}`);
-      } else if (def.key === DopplerSecretKey.turboApi) {
+      } else if (def.key === VaultSecretKey.turboApi) {
         const err = validateOptionalSecretFormat(def.key, raw);
         if (err !== null) missingRequired.push(`  • ${err}`);
       }
@@ -111,12 +109,8 @@ async function main(): Promise<void> {
   }
   console.log('B2 S3 credentials OK');
 
-  const turboApi =
-    (await store.getOptional(DopplerSecretKey.turboApi))?.readSecretValue() ??
-    '';
-  const turboToken =
-    (await store.getOptional(DopplerSecretKey.turboToken))?.readSecretValue() ??
-    '';
+  const turboApi = readEnvSecret(VaultSecretKey.turboApi);
+  const turboToken = readEnvSecret(VaultSecretKey.turboToken);
 
   // Skip cache smoke test in CI - the Worker doesn't exist until after deployment.
   if (!isCi() && turboApi.length > 0 && turboToken.length > 0) {
@@ -128,7 +122,7 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(`Doppler secrets OK (config=${config})`);
+  console.log(`Vault secrets OK (config=${config})`);
 }
 
 await main();

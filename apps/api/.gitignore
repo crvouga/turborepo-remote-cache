@@ -1,2 +1,4 @@
 .wrangler/
 .dev.vars
+.vault-token
+init-output.json

@@ -1,19 +1,19 @@
 /** Public origin for the self-hosted Turborepo remote cache Worker. */
 export const CACHE_PUBLIC_ORIGIN = 'https://turborepo.chrisvouga.dev';
 
-export type DopplerSecretUsedBy = 'worker' | 'client' | 'deploy';
+export type SecretUsedBy = 'worker' | 'client' | 'deploy';
 
-export type DopplerSecretDefinition = {
+export type SecretDefinition = {
   readonly key: string;
   readonly required: boolean;
-  readonly usedBy: readonly DopplerSecretUsedBy[];
+  readonly usedBy: readonly SecretUsedBy[];
   readonly hint: string;
-  /** When set, `ensure-doppler-secrets` writes this value if the key is missing. */
+  /** When set, `ensure-vault-secrets` writes this value if the key is missing. */
   readonly defaultValue?: string;
 };
 
-/** Stable Doppler secret key literals — single source of truth. */
-export const DopplerSecretKey = {
+/** Stable Vault secret key literals — single source of truth. */
+export const VaultSecretKey = {
   turboToken: 'TURBO_TOKEN',
   turboApi: 'TURBO_API',
   turboTeam: 'TURBO_TEAM',
@@ -29,111 +29,111 @@ export const DopplerSecretKey = {
   cloudflareAccountId: 'CLOUDFLARE_ACCOUNT_ID',
 } as const;
 
-export const DOPPLER_SECRET_REGISTRY: readonly DopplerSecretDefinition[] = [
+export const VAULT_SECRET_REGISTRY: readonly SecretDefinition[] = [
   {
-    key: DopplerSecretKey.turboToken,
+    key: VaultSecretKey.turboToken,
     required: true,
     usedBy: ['worker', 'client'],
     hint: 'Bearer token Turbo clients send and the cache Worker validates',
   },
   {
-    key: DopplerSecretKey.turboApi,
+    key: VaultSecretKey.turboApi,
     required: true,
     usedBy: ['client'],
     hint: 'Self-hosted cache URL (TURBO_API env for turbo CLI)',
     defaultValue: CACHE_PUBLIC_ORIGIN,
   },
   {
-    key: DopplerSecretKey.turboTeam,
+    key: VaultSecretKey.turboTeam,
     required: true,
     usedBy: ['client'],
     hint: 'Any team slug (e.g. local) — required by turbo CLI for remote cache',
     defaultValue: 'local',
   },
   {
-    key: DopplerSecretKey.b2S3Endpoint,
+    key: VaultSecretKey.b2S3Endpoint,
     required: true,
     usedBy: ['worker'],
     hint: 'Backblaze B2 S3 endpoint URL (e.g. https://s3.us-west-004.backblazeb2.com)',
   },
   {
-    key: DopplerSecretKey.b2S3Region,
+    key: VaultSecretKey.b2S3Region,
     required: true,
     usedBy: ['worker'],
     hint: 'B2 region slug (e.g. us-west-004)',
   },
   {
-    key: DopplerSecretKey.b2S3AccessKeyId,
+    key: VaultSecretKey.b2S3AccessKeyId,
     required: true,
     usedBy: ['worker'],
     hint: 'B2 application key ID for the S3-compatible API (starts with 004)',
   },
   {
-    key: DopplerSecretKey.b2S3SecretAccessKey,
+    key: VaultSecretKey.b2S3SecretAccessKey,
     required: true,
     usedBy: ['worker'],
     hint: 'B2 application key secret (shown once at key creation; starts with K)',
   },
   {
-    key: DopplerSecretKey.b2Bucket,
+    key: VaultSecretKey.b2Bucket,
     required: true,
     usedBy: ['worker'],
     hint: 'B2 bucket name for cache artifacts',
   },
   {
-    key: DopplerSecretKey.cloudflareApiToken,
+    key: VaultSecretKey.cloudflareApiToken,
     required: true,
     usedBy: ['deploy'],
     hint: 'Cloudflare API token with Workers deploy permissions',
   },
   {
-    key: DopplerSecretKey.cloudflareAccountId,
+    key: VaultSecretKey.cloudflareAccountId,
     required: true,
     usedBy: ['deploy'],
     hint: 'Cloudflare account ID for wrangler deploy',
   },
   {
-    key: DopplerSecretKey.turboCache,
+    key: VaultSecretKey.turboCache,
     required: false,
     usedBy: ['client'],
     hint: 'Turbo --cache flag default (e.g. remote:rw)',
     defaultValue: 'remote:rw',
   },
   {
-    key: DopplerSecretKey.turboLogOrder,
+    key: VaultSecretKey.turboLogOrder,
     required: false,
     usedBy: ['client'],
     hint: 'Turbo log order (e.g. stream)',
   },
   {
-    key: DopplerSecretKey.turboTelemetryDisabled,
+    key: VaultSecretKey.turboTelemetryDisabled,
     required: false,
     usedBy: ['client'],
     hint: 'Set to 1 to disable Turbo telemetry',
   },
 ] as const;
 
-export const DOPPLER_SETUP_CONFIGS = ['dev', 'prd'] as const;
+export const VAULT_CONFIGS = ['dev', 'prd'] as const;
 
 /** Turbo env vars consumer monorepos need to use this self-hosted cache. */
 export const TURBO_CLIENT_REQUIRED_KEYS = [
-  DopplerSecretKey.turboToken,
-  DopplerSecretKey.turboApi,
-  DopplerSecretKey.turboTeam,
-  DopplerSecretKey.turboCache,
+  VaultSecretKey.turboToken,
+  VaultSecretKey.turboApi,
+  VaultSecretKey.turboTeam,
+  VaultSecretKey.turboCache,
 ] as const;
 
 /** Optional Turbo client env vars copied when set in the source config. */
 export const TURBO_CLIENT_OPTIONAL_KEYS = [
-  DopplerSecretKey.turboLogOrder,
-  DopplerSecretKey.turboTelemetryDisabled,
+  VaultSecretKey.turboLogOrder,
+  VaultSecretKey.turboTelemetryDisabled,
 ] as const;
 
 export function turboClientRegistryDefaults(): Readonly<
   Record<string, string | undefined>
 > {
   const defaults: Record<string, string | undefined> = {};
-  for (const def of DOPPLER_SECRET_REGISTRY) {
+  for (const def of VAULT_SECRET_REGISTRY) {
     if (def.defaultValue !== undefined) {
       defaults[def.key] = def.defaultValue;
     }
@@ -147,7 +147,7 @@ export function validateOptionalSecretFormat(
   key: string,
   value: string
 ): string | null {
-  if (key === DopplerSecretKey.turboApi) {
+  if (key === VaultSecretKey.turboApi) {
     try {
       const url = new URL(value);
       if (url.protocol !== 'https:') {
@@ -157,7 +157,7 @@ export function validateOptionalSecretFormat(
       return `TURBO_API must be a valid URL, got ${value}`;
     }
   }
-  if (key === DopplerSecretKey.turboCache && !TURBO_CACHE_RE.test(value)) {
+  if (key === VaultSecretKey.turboCache && !TURBO_CACHE_RE.test(value)) {
     return `Invalid TURBO_CACHE "${value}" (expected e.g. remote:rw)`;
   }
   return null;

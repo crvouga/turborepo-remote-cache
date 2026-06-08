@@ -1,7 +1,7 @@
 import type { ObjectStoreS3Config } from '@pkgs/object-store/impl-s3';
 import { ObjectStoreImplS3 } from '@pkgs/object-store/impl-s3';
 
-import { DopplerSecretKey } from './doppler-secrets-registry';
+import { VaultSecretKey } from './vault-secrets-registry';
 
 function readRequiredEnv(key: string): string | null {
   const value = process.env[key]?.trim() ?? '';
@@ -9,11 +9,11 @@ function readRequiredEnv(key: string): string | null {
 }
 
 export function readB2S3ConfigFromEnv(): ObjectStoreS3Config | null {
-  const endpoint = readRequiredEnv(DopplerSecretKey.b2S3Endpoint);
-  const region = readRequiredEnv(DopplerSecretKey.b2S3Region);
-  const accessKeyId = readRequiredEnv(DopplerSecretKey.b2S3AccessKeyId);
-  const secretAccessKey = readRequiredEnv(DopplerSecretKey.b2S3SecretAccessKey);
-  const bucket = readRequiredEnv(DopplerSecretKey.b2Bucket);
+  const endpoint = readRequiredEnv(VaultSecretKey.b2S3Endpoint);
+  const region = readRequiredEnv(VaultSecretKey.b2S3Region);
+  const accessKeyId = readRequiredEnv(VaultSecretKey.b2S3AccessKeyId);
+  const secretAccessKey = readRequiredEnv(VaultSecretKey.b2S3SecretAccessKey);
+  const bucket = readRequiredEnv(VaultSecretKey.b2Bucket);
 
   if (
     endpoint === null ||
@@ -29,7 +29,7 @@ export function readB2S3ConfigFromEnv(): ObjectStoreS3Config | null {
 }
 
 const B2_CREDENTIAL_HINT =
-  'Create a new Backblaze B2 application key with read/write access to the cache bucket, then set B2_S3_ACCESS_KEY_ID (key ID) and B2_S3_SECRET_ACCESS_KEY (application key) in Doppler dev and prd.';
+  'Create a new Backblaze B2 application key with read/write access to the cache bucket, then set B2_S3_ACCESS_KEY_ID (key ID) and B2_S3_SECRET_ACCESS_KEY (application key) in Vault dev and prd.';
 
 function formatB2ProbeError(message: string, bucket: string): string {
   if (

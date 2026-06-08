@@ -1,13 +1,14 @@
 /**
  * Cloudflare Worker bindings for the Turborepo remote cache Worker.
  *
- * Only `DOPPLER_TOKEN` is a Wrangler secret / `.dev.vars` binding. B2 creds,
- * cache bearer token, and all other config load from Doppler at boot.
+ * Only `VAULT_TOKEN` is a Wrangler secret / `.dev.vars` binding. B2 creds,
+ * cache bearer token, and all other config load from Vault at boot.
  */
 export type CacheWorkerEnv = {
-  DOPPLER_TOKEN: string;
-  DOPPLER_PROJECT?: string;
-  DOPPLER_CONFIG?: string;
+  VAULT_TOKEN: string;
+  VAULT_ADDR?: string;
+  VAULT_PROJECT?: string;
+  VAULT_CONFIG?: string;
 };
 
 /**
@@ -24,11 +25,11 @@ export class ConfigurationError extends Error {
   }
 }
 
-export function assertDopplerTokenBinding(env: CacheWorkerEnv): string {
-  const raw = env.DOPPLER_TOKEN;
+export function assertVaultTokenBinding(env: CacheWorkerEnv): string {
+  const raw = env.VAULT_TOKEN;
   if (typeof raw !== 'string' || raw.trim().length === 0) {
     throw new ConfigurationError(
-      'DOPPLER_TOKEN is required (non-empty string). Set this Worker secret or add it to .dev.vars; remaining config is loaded from Doppler.'
+      'VAULT_TOKEN is required (non-empty string). Set this Worker secret or add it to .dev.vars; remaining config is loaded from Vault.'
     );
   }
   return raw.trim();
@@ -40,12 +41,14 @@ function readOptionalBinding(value: string | undefined): string | null {
   return t.length > 0 ? t : null;
 }
 
-export function readDopplerScopeBindings(env: CacheWorkerEnv): {
+export function readVaultScopeBindings(env: CacheWorkerEnv): {
+  addr: string | null;
   project: string | null;
   config: string | null;
 } {
   return {
-    project: readOptionalBinding(env.DOPPLER_PROJECT),
-    config: readOptionalBinding(env.DOPPLER_CONFIG),
+    addr: readOptionalBinding(env.VAULT_ADDR),
+    project: readOptionalBinding(env.VAULT_PROJECT),
+    config: readOptionalBinding(env.VAULT_CONFIG),
   };
 }

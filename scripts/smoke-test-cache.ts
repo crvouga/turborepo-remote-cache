@@ -1,10 +1,10 @@
 /**
  * Post-deploy smoke test for the self-hosted Turborepo remote cache Worker.
  *
- * Requires TURBO_API and TURBO_TOKEN in env (via `doppler run`).
+ * Requires TURBO_API and TURBO_TOKEN in env (via `vault run`).
  * CI: `bun run smoke:prd` after deploy.
  */
-import { DopplerSecretKey } from './doppler-secrets-registry';
+import { VaultSecretKey } from './vault-secrets-registry';
 import { verifyB2S3Credentials } from './verify-b2-s3';
 
 const READINESS_ATTEMPTS = 10;
@@ -28,7 +28,7 @@ function requireEnv(key: string): string {
   const value = process.env[key]?.trim() ?? '';
   if (value.length === 0) {
     fail(
-      `${key} is required (use \`doppler run -- bun run scripts/smoke-test-cache.ts\`).`
+      `${key} is required (use \`vault run -- bun run scripts/smoke-test-cache.ts\`).`
     );
   }
   return value;
@@ -384,8 +384,8 @@ async function runSuite(apiUrl: string, token: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const apiUrl = requireEnv(DopplerSecretKey.turboApi);
-  const token = requireEnv(DopplerSecretKey.turboToken);
+  const apiUrl = requireEnv(VaultSecretKey.turboApi);
+  const token = requireEnv(VaultSecretKey.turboToken);
 
   console.log(`Remote cache smoke test (${baseUrl(apiUrl)})`);
 

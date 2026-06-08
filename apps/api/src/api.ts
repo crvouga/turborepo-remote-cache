@@ -5,9 +5,9 @@ import { isSecretStoreError } from '@pkgs/secret-store';
 import { createCacheApp } from './cache/create-app';
 import { loadCacheBootConfig } from './config/boot-config';
 import {
-  assertDopplerTokenBinding,
+  assertVaultTokenBinding,
   ConfigurationError,
-  readDopplerScopeBindings,
+  readVaultScopeBindings,
   type CacheWorkerEnv,
 } from './config/env';
 import { createCacheSecretStore } from './config/secret-store';
@@ -69,9 +69,9 @@ function latchFatal(reason: string): void {
 }
 
 async function bootApp(env: CacheWorkerEnv): Promise<App> {
-  const token = assertDopplerTokenBinding(env);
-  const { project, config } = readDopplerScopeBindings(env);
-  const secretStore = createCacheSecretStore(token, { project, config });
+  const token = assertVaultTokenBinding(env);
+  const { addr, project, config } = readVaultScopeBindings(env);
+  const secretStore = createCacheSecretStore(token, { addr, project, config });
   const bootConfig = await loadCacheBootConfig(secretStore);
   return createCacheApp(bootConfig);
 }

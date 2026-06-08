@@ -7,3 +7,5 @@ apps/api/.dev.vars
 .DS_Store
 *.tsbuildinfo
 /actionlint
+.vault-token
+init-output.json

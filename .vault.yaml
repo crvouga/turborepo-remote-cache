@@ -1,0 +1,5 @@
+addr: https://secret-store.chrisvouga.dev
+mount: secret
+project: personal
+# default; use prd for production commands
+config: dev

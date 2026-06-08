@@ -7,44 +7,44 @@
 
 ## Architecture
 
-Self-hosted Turborepo Remote Cache on Cloudflare Workers. Artifacts live in Backblaze B2 via `@pkgs/object-store` (`ObjectStoreImplS3`). Only `DOPPLER_TOKEN` is a Worker secret; B2 creds and `TURBO_TOKEN` load from Doppler at boot.
+Self-hosted Turborepo Remote Cache on Cloudflare Workers. Artifacts live in Backblaze B2 via `@pkgs/object-store` (`ObjectStoreImplS3`). Only `VAULT_TOKEN` is a Worker secret; B2 creds and `TURBO_TOKEN` load from Vault at boot.
 
-## Doppler secrets (source of truth)
+## Vault secrets (source of truth)
 
-Canonical registry: [`scripts/doppler-secrets-registry.ts`](scripts/doppler-secrets-registry.ts)
+Canonical registry: [`scripts/vault-secrets-registry.ts`](scripts/vault-secrets-registry.ts)
 
-| Config | Purpose                                                           |
-| ------ | ----------------------------------------------------------------- |
-| `dev`  | Local dev + CI (`check:doppler-secrets`)                          |
-| `prd`  | Production deploy (`check:doppler-secrets:prd`, `bun run deploy`) |
+| Config | Purpose                                                         |
+| ------ | --------------------------------------------------------------- |
+| `dev`  | Local dev + CI (`check:vault-secrets`)                          |
+| `prd`  | Production deploy (`check:vault-secrets:prd`, `bun run deploy`) |
 
-Both configs must carry the same required keys. `bun run setup` runs `ensure-doppler-secrets.ts` to write derived defaults (`TURBO_API`, `TURBO_TEAM`, `TURBO_CACHE`) into **dev** and **prd** when missing.
+Both configs must carry the same required keys. `bun run setup` runs `ensure-vault-secrets.ts` to write derived defaults (`TURBO_API`, `TURBO_TEAM`, `TURBO_CACHE`) into **dev** and **prd** when missing.
 
 Required keys (manual): `TURBO_TOKEN`, B2 `B2_*`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
 
 ## Scripts
 
-| Script                              | Purpose                                          |
-| ----------------------------------- | ------------------------------------------------ |
-| `bun run setup`                     | `.dev.vars` + ensure Doppler defaults in dev/prd |
-| `bun run check:doppler-secrets`     | Verify dev config (CI gate)                      |
-| `bun run check:doppler-secrets:prd` | Verify prd config (deploy gate)                  |
-| `bun run deploy`                    | `DOPPLER_CONFIG=prd` → wrangler secret + deploy  |
+| Script                            | Purpose                                        |
+| --------------------------------- | ---------------------------------------------- |
+| `bun run setup`                   | `.dev.vars` + ensure Vault defaults in dev/prd |
+| `bun run check:vault-secrets`     | Verify dev config (CI gate)                    |
+| `bun run check:vault-secrets:prd` | Verify prd config (deploy gate)                |
+| `bun run deploy`                  | `vault run --config prd` → wrangler deploy     |
 
 ## CI/CD
 
 Single workflow: `.github/workflows/deployment-pipeline.yml`
 
-1. **check** — Doppler dev secrets + `bun run check` on every push/PR
-2. **deploy** — Doppler prd secrets + deploy on main push only
+1. **check** — Vault dev secrets (OIDC) + `bun run check` on every push/PR
+2. **deploy** — Vault prd secrets (OIDC) + deploy on main push only
 
-GitHub secret: `DOPPLER_SERVICE_TOKEN` only. Seed: `bun run gh:seed-doppler-service-token`.
+No GitHub secret token required. CI uses GitHub OIDC via `hashicorp/vault-action`.
 
 ## Client usage
 
 ```bash
 export TURBO_API=https://turborepo.chrisvouga.dev
-export TURBO_TOKEN=<same as Doppler TURBO_TOKEN>
+export TURBO_TOKEN=<same as Vault TURBO_TOKEN>
 export TURBO_TEAM=local
 turbo run build --cache=remote:rw
 ```
@@ -53,6 +53,7 @@ turbo run build --cache=remote:rw
 
 ```bash
 bun install
+vault setup --project personal --config dev
 bun run setup
-bun run dev   # wrangler dev :8787
+bun run dev # wrangler dev :8787
 ```

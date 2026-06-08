@@ -7,14 +7,14 @@ preview_urls = false
 
 routes = [{ pattern = "turborepo.chrisvouga.dev", custom_domain = true }]
 
-# Doppler scope for Worker boot (see apps/api/src/config/env.ts). Only
-# DOPPLER_TOKEN is a Wrangler secret; project/config must be plain vars.
+# Vault scope for Worker boot (see apps/api/src/config/env.ts). Only
+# VAULT_TOKEN is a Wrangler secret; addr/project/config are plain vars.
 [env.dev]
-vars = { DOPPLER_PROJECT = "personal", DOPPLER_CONFIG = "dev" }
+vars = { VAULT_ADDR = "https://secret-store.chrisvouga.dev", VAULT_PROJECT = "personal", VAULT_CONFIG = "dev" }
 
 [env.prd]
 name = "turborepo-remote-cache"
-vars = { DOPPLER_PROJECT = "personal", DOPPLER_CONFIG = "prd" }
+vars = { VAULT_ADDR = "https://secret-store.chrisvouga.dev", VAULT_PROJECT = "personal", VAULT_CONFIG = "prd" }
 
 [observability]
 [observability.logs]
