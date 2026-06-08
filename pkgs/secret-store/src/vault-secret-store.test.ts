@@ -192,6 +192,31 @@ describe('VaultSecretStore', () => {
     expect(sleeps).toEqual([2000]);
   });
 
+  it('retries on HTTP 530 with fixed backoff', async () => {
+    let calls = 0;
+    const sleeps: number[] = [];
+    const store = new VaultSecretStore({
+      ...baseOpts,
+      rateLimitRetries: 2,
+      sleep: async (ms) => {
+        sleeps.push(ms);
+      },
+      fetchFn: mockFetch(() => {
+        calls += 1;
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response('standby removed', { status: 530 })
+          );
+        }
+        return Promise.resolve(kvResponse({ FOO: 'bar' }));
+      }),
+    });
+    const foo = await store.getRequired('FOO');
+    expect(foo.readSecretValue()).toBe('bar');
+    expect(calls).toBe(2);
+    expect(sleeps).toEqual([2000]);
+  });
+
   it('gives up after rateLimitRetries and surfaces the 429', async () => {
     let calls = 0;
     const store = new VaultSecretStore({

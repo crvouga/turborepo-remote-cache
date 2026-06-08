@@ -1,6 +1,9 @@
 import { Assert, ThrowingCrashHandler } from '@pkgs/assert';
 import { createLogger } from '@pkgs/logger';
-import { isSecretStoreError } from '@pkgs/secret-store';
+import {
+  isSecretStoreError,
+  SecretStoreRequestError,
+} from '@pkgs/secret-store';
 
 import { createCacheApp } from './cache/create-app';
 import { loadCacheBootConfig } from './config/boot-config';
@@ -68,6 +71,13 @@ function latchFatal(reason: string): void {
   }
 }
 
+function isTransientVaultBootError(err: unknown): boolean {
+  if (!(err instanceof SecretStoreRequestError)) return false;
+  const status = err.status;
+  if (status === undefined) return true;
+  return status === 429 || status === 530 || (status >= 502 && status <= 504);
+}
+
 async function bootApp(env: CacheWorkerEnv): Promise<App> {
   const token = assertVaultTokenBinding(env);
   const { addr, project, config } = readVaultScopeBindings(env);
@@ -85,7 +95,18 @@ async function ensureApp(env: CacheWorkerEnv): Promise<App | null> {
     bootState = { kind: 'ready', app };
     return app;
   } catch (err: unknown) {
-    if (err instanceof ConfigurationError || isSecretStoreError(err)) {
+    if (err instanceof ConfigurationError) {
+      latchFatal(err.message);
+      return null;
+    }
+    if (isTransientVaultBootError(err)) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.warn('cache boot transient vault error; will retry', {
+        error: message,
+      });
+      return null;
+    }
+    if (isSecretStoreError(err)) {
       latchFatal(err instanceof Error ? err.message : String(err));
       return null;
     }

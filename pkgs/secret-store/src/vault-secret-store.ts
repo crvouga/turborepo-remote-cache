@@ -357,7 +357,10 @@ export class VaultSecretStore implements SecretStore {
         );
       }
       // HTTP 530 (node removed from HA cluster) is potentially transient - retry
-      if ((response.status !== 429 && response.status !== 530) || attempt >= this.rateLimitRetries) {
+      if (
+        (response.status !== 429 && response.status !== 530) ||
+        attempt >= this.rateLimitRetries
+      ) {
         return response;
       }
       const retryAfterMs = parseRetryAfterMs(
@@ -365,7 +368,10 @@ export class VaultSecretStore implements SecretStore {
       );
       // For HTTP 530, use a fixed backoff (no Retry-After header expected)
       const backoffMs =
-        retryAfterMs ?? (response.status === 530 ? 2_000 : Math.min(2 ** attempt * 250, RATE_LIMIT_BACKOFF_CAP_MS));
+        retryAfterMs ??
+        (response.status === 530
+          ? 2_000
+          : Math.min(2 ** attempt * 250, RATE_LIMIT_BACKOFF_CAP_MS));
       attempt += 1;
       await this.sleep(backoffMs);
     }
