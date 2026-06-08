@@ -12,9 +12,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -30,7 +27,7 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - name: Import Vault secrets (dev)
-        uses: hashicorp/vault-action@v3
+        uses: hashicorp/vault-action@v4
         with:
           url: https://secret-store.chrisvouga.dev
           method: jwt
@@ -75,7 +72,7 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - name: Import Vault secrets (prd)
-        uses: hashicorp/vault-action@v3
+        uses: hashicorp/vault-action@v4
         with:
           url: https://secret-store.chrisvouga.dev
           method: jwt
