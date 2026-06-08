@@ -67,17 +67,20 @@ export class VaultCli {
   }
 
   private runVaultRaw(subcommand: string, args: readonly string[]): string {
-    const parts = ['vault'];
-    if (this.addr !== null) {
-      parts.push('-address', this.addr);
-    }
-    parts.push(subcommand, ...args);
-    const cmd = parts.join(' ');
+    // The `vault` binary is a wrapper (secret-store) that only special-cases
+    // `run`/`setup` and passes everything else through to the underlying Vault
+    // CLI. A leading `-address` flag is NOT accepted by the wrapper, so the
+    // address must be supplied via the VAULT_ADDR env var instead.
+    const cmd = ['vault', subcommand, ...args].join(' ');
+    const env =
+      this.addr !== null
+        ? { ...this.processEnv, VAULT_ADDR: this.addr }
+        : this.processEnv;
     try {
       return this.execSyncFn(cmd, {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: this.processEnv,
+        env,
       }).trim();
     } catch (error: unknown) {
       throw createVaultCliError(`vault command failed: \`${cmd}\``, {

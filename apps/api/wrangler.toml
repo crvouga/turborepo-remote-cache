@@ -9,7 +9,13 @@ routes = [{ pattern = "turborepo.chrisvouga.dev", custom_domain = true }]
 
 # Vault scope for Worker boot (see apps/api/src/config/env.ts). Only
 # VAULT_TOKEN is a Wrangler secret; addr/project/config are plain vars.
+#
+# dev and prd target the SAME Worker (turborepo-remote-cache); the only
+# difference is which Vault config the Worker reads at boot. Without an
+# explicit name here wrangler would append "-dev" and provision a second
+# Worker (turborepo-remote-cache-dev).
 [env.dev]
+name = "turborepo-remote-cache"
 vars = { VAULT_ADDR = "https://secret-store.chrisvouga.dev", VAULT_PROJECT = "personal", VAULT_CONFIG = "dev" }
 
 [env.prd]
