@@ -3,4 +3,4 @@ dist
 *.lock
 .turbo
 .wrangler
-apps/api/.dev.vars
+apps/api/.env

@@ -112,7 +112,7 @@ async function main(): Promise<void> {
   const turboApi = readEnvSecret(VaultSecretKey.turboApi);
   const turboToken = readEnvSecret(VaultSecretKey.turboToken);
 
-  // Skip cache smoke test in CI - the Worker doesn't exist until after deployment.
+  // Skip cache smoke test in CI - the server may not exist until after deployment.
   if (!isCi() && turboApi.length > 0 && turboToken.length > 0) {
     const smokeErr = await smokeCacheStatus(turboApi, turboToken);
     if (smokeErr !== null) {

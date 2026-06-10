@@ -1,6 +1,6 @@
 import { VaultSecretKey } from '@scripts/vault-secrets-registry';
 
-/** Vault secret names loaded at Worker boot. */
+/** Vault secret names loaded at server boot. */
 export const CacheSecretName = {
   turboToken: VaultSecretKey.turboToken,
   b2S3Endpoint: VaultSecretKey.b2S3Endpoint,

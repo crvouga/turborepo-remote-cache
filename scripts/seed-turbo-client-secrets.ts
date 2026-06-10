@@ -255,7 +255,7 @@ function mirrorDevToPrd(cli: VaultCli, project: string): void {
   }
 
   console.log(
-    `Turbo client secrets mirrored dev → prd (project=${project}). Worker secrets unchanged.`
+    `Turbo client secrets mirrored dev → prd (project=${project}). Fly secrets unchanged.`
   );
 }
 

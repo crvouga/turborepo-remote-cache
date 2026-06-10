@@ -3,7 +3,13 @@
   "ui": "stream",
   "concurrency": "6",
   "globalDependencies": ["bun.lock", "tsconfig.json", "package.json"],
-  "globalPassThroughEnv": ["CLOUDFLARE_*", "VAULT_*", "TURBO_*"],
+  "globalPassThroughEnv": [
+    "CLOUDFLARE_*",
+    "FLY_*",
+    "VAULT_*",
+    "TURBO_*",
+    "DEPLOY_*"
+  ],
   "tasks": {
     "setup": {
       "cache": false,
@@ -35,7 +41,7 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**/*.ts", "wrangler.toml"],
+      "inputs": ["src/**/*.ts", "Dockerfile", "fly.toml"],
       "outputLogs": "new-only",
       "outputs": []
     },

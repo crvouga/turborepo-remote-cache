@@ -5,12 +5,17 @@ name: Deployment Pipeline
 permissions:
   contents: read
   id-token: write
+  packages: write
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+
+env:
+  FLY_APP: turborepo-remote-cache
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
   check:
@@ -44,8 +49,11 @@ jobs:
             secret/data/personal/dev B2_S3_ACCESS_KEY_ID | B2_S3_ACCESS_KEY_ID ;
             secret/data/personal/dev B2_S3_SECRET_ACCESS_KEY | B2_S3_SECRET_ACCESS_KEY ;
             secret/data/personal/dev B2_BUCKET | B2_BUCKET ;
+            secret/data/personal/dev VAULT_TOKEN | VAULT_TOKEN ;
+            secret/data/personal/dev FLY_API_TOKEN | FLY_API_TOKEN ;
+            secret/data/personal/dev FLY_ORG | FLY_ORG ;
             secret/data/personal/dev CLOUDFLARE_API_TOKEN | CLOUDFLARE_API_TOKEN ;
-            secret/data/personal/dev CLOUDFLARE_ACCOUNT_ID | CLOUDFLARE_ACCOUNT_ID
+            secret/data/personal/dev CLOUDFLARE_ZONE_ID | CLOUDFLARE_ZONE_ID
       - name: Verify Vault secrets (dev)
         env:
           CI: true
@@ -63,7 +71,7 @@ jobs:
     concurrency:
       group: deploy-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: false
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -89,8 +97,11 @@ jobs:
             secret/data/personal/prd B2_S3_ACCESS_KEY_ID | B2_S3_ACCESS_KEY_ID ;
             secret/data/personal/prd B2_S3_SECRET_ACCESS_KEY | B2_S3_SECRET_ACCESS_KEY ;
             secret/data/personal/prd B2_BUCKET | B2_BUCKET ;
+            secret/data/personal/prd VAULT_TOKEN | VAULT_TOKEN ;
+            secret/data/personal/prd FLY_API_TOKEN | FLY_API_TOKEN ;
+            secret/data/personal/prd FLY_ORG | FLY_ORG ;
             secret/data/personal/prd CLOUDFLARE_API_TOKEN | CLOUDFLARE_API_TOKEN ;
-            secret/data/personal/prd CLOUDFLARE_ACCOUNT_ID | CLOUDFLARE_ACCOUNT_ID
+            secret/data/personal/prd CLOUDFLARE_ZONE_ID | CLOUDFLARE_ZONE_ID
       - name: Verify Vault secrets (prd)
         env:
           CI: true
@@ -98,7 +109,28 @@ jobs:
           VAULT_CONFIG: prd
           VAULT_PROJECT: personal
         run: bun run scripts/check-vault-secrets.ts
-      - name: Deploy Worker
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy to Fly.io
+        env:
+          CI: true
+          GITHUB_ACTIONS: true
+          DEPLOY_IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
         run: bun run --filter @apps/api deploy
       - name: Smoke test remote cache
         env:

@@ -35,8 +35,8 @@
   },
   "include": [
     "scripts/**/*.ts",
+    "scripts/**/*.test.ts",
     "apps/api/src/**/*.ts",
-    "apps/api/src/**/*.d.ts",
     "apps/api/scripts/**/*.ts",
     "pkgs/assert/src/**/*.ts",
     "pkgs/logger/src/**/*.ts",

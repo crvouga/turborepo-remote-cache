@@ -1,7 +1,16 @@
-/** Public origin for the self-hosted Turborepo remote cache Worker. */
-export const CACHE_PUBLIC_ORIGIN = 'https://turborepo.chrisvouga.dev';
+/** Fly.io app name for the cache server. */
+export const FLY_APP_NAME = 'turborepo-remote-cache';
 
-export type SecretUsedBy = 'worker' | 'client' | 'deploy';
+/** Public hostname for the self-hosted Turborepo remote cache server. */
+export const CACHE_PUBLIC_HOSTNAME = 'turborepo.chrisvouga.dev';
+
+/** Cloudflare DNS zone for {@link CACHE_PUBLIC_HOSTNAME}. */
+export const CACHE_DNS_ZONE = 'chrisvouga.dev';
+
+/** Public origin for the self-hosted Turborepo remote cache server. */
+export const CACHE_PUBLIC_ORIGIN = `https://${CACHE_PUBLIC_HOSTNAME}`;
+
+export type SecretUsedBy = 'server' | 'client' | 'deploy';
 
 export type SecretDefinition = {
   readonly key: string;
@@ -25,16 +34,19 @@ export const VaultSecretKey = {
   b2S3AccessKeyId: 'B2_S3_ACCESS_KEY_ID',
   b2S3SecretAccessKey: 'B2_S3_SECRET_ACCESS_KEY',
   b2Bucket: 'B2_BUCKET',
+  vaultToken: 'VAULT_TOKEN',
+  flyApiToken: 'FLY_API_TOKEN',
+  flyOrg: 'FLY_ORG',
   cloudflareApiToken: 'CLOUDFLARE_API_TOKEN',
-  cloudflareAccountId: 'CLOUDFLARE_ACCOUNT_ID',
+  cloudflareZoneId: 'CLOUDFLARE_ZONE_ID',
 } as const;
 
 export const VAULT_SECRET_REGISTRY: readonly SecretDefinition[] = [
   {
     key: VaultSecretKey.turboToken,
     required: true,
-    usedBy: ['worker', 'client'],
-    hint: 'Bearer token Turbo clients send and the cache Worker validates',
+    usedBy: ['server', 'client'],
+    hint: 'Bearer token Turbo clients send and the cache server validates',
   },
   {
     key: VaultSecretKey.turboApi,
@@ -53,44 +65,62 @@ export const VAULT_SECRET_REGISTRY: readonly SecretDefinition[] = [
   {
     key: VaultSecretKey.b2S3Endpoint,
     required: true,
-    usedBy: ['worker'],
+    usedBy: ['server'],
     hint: 'Backblaze B2 S3 endpoint URL (e.g. https://s3.us-west-004.backblazeb2.com)',
   },
   {
     key: VaultSecretKey.b2S3Region,
     required: true,
-    usedBy: ['worker'],
+    usedBy: ['server'],
     hint: 'B2 region slug (e.g. us-west-004)',
   },
   {
     key: VaultSecretKey.b2S3AccessKeyId,
     required: true,
-    usedBy: ['worker'],
+    usedBy: ['server'],
     hint: 'B2 application key ID for the S3-compatible API (starts with 004)',
   },
   {
     key: VaultSecretKey.b2S3SecretAccessKey,
     required: true,
-    usedBy: ['worker'],
+    usedBy: ['server'],
     hint: 'B2 application key secret (shown once at key creation; starts with K)',
   },
   {
     key: VaultSecretKey.b2Bucket,
     required: true,
-    usedBy: ['worker'],
+    usedBy: ['server'],
     hint: 'B2 bucket name for cache artifacts',
+  },
+  {
+    key: VaultSecretKey.vaultToken,
+    required: true,
+    usedBy: ['server', 'deploy'],
+    hint: 'Long-lived Vault read token; CI syncs this to Fly secrets for server boot',
+  },
+  {
+    key: VaultSecretKey.flyApiToken,
+    required: true,
+    usedBy: ['deploy'],
+    hint: 'Fly.io API token with deploy permissions for turborepo-remote-cache',
+  },
+  {
+    key: VaultSecretKey.flyOrg,
+    required: false,
+    usedBy: ['deploy'],
+    hint: 'Fly.io org slug when creating the app (defaults to the token default org)',
   },
   {
     key: VaultSecretKey.cloudflareApiToken,
     required: true,
     usedBy: ['deploy'],
-    hint: 'Cloudflare API token with Workers deploy permissions',
+    hint: 'Cloudflare API token with Zone.DNS Edit for chrisvouga.dev',
   },
   {
-    key: VaultSecretKey.cloudflareAccountId,
-    required: true,
+    key: VaultSecretKey.cloudflareZoneId,
+    required: false,
     usedBy: ['deploy'],
-    hint: 'Cloudflare account ID for wrangler deploy',
+    hint: 'Cloudflare zone ID (optional; looked up from CACHE_DNS_ZONE when unset)',
   },
   {
     key: VaultSecretKey.turboCache,

@@ -7,7 +7,7 @@
     "pkgs/*"
   ],
   "scripts": {
-    "check": "bun run ci:format && turbo run tc lint test build",
+    "check": "bun run ci:format && bun run test:scripts && turbo run tc lint test build",
     "check:vault-secrets": "vault run -- bun run scripts/check-vault-secrets.ts",
     "check:vault-secrets:prd": "vault run --config prd -- bun run scripts/check-vault-secrets.ts",
     "ci:format": "prettier --check .",
@@ -21,7 +21,8 @@
     "seed:turbo-client:prd": "vault run --config prd -- bun run scripts/seed-turbo-client-secrets.ts",
     "setup": "bun run --filter @apps/api setup && bun run scripts/ensure-vault-secrets.ts",
     "smoke": "vault run -- bun run scripts/smoke-test-cache.ts",
-    "smoke:prd": "vault run --config prd -- bun run scripts/smoke-test-cache.ts"
+    "smoke:prd": "vault run --config prd -- bun run scripts/smoke-test-cache.ts",
+    "test:scripts": "bun test scripts"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
@@ -55,7 +56,6 @@
     "prettier": "^3.8.1",
     "turbo": "^2.9.16",
     "typescript": "~5.9.2",
-    "typescript-eslint": "^8.59.1",
-    "wrangler": "^4.54.0"
+    "typescript-eslint": "^8.59.1"
   }
 }

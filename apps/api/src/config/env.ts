@@ -1,20 +1,21 @@
 /**
- * Cloudflare Worker bindings for the Turborepo remote cache Worker.
+ * Runtime environment for the Turborepo remote cache server.
  *
- * Only `VAULT_TOKEN` is a Wrangler secret / `.dev.vars` binding. B2 creds,
- * cache bearer token, and all other config load from Vault at boot.
+ * Only `VAULT_TOKEN` is a deploy-time secret. B2 creds, cache bearer token,
+ * and all other config load from Vault at boot.
  */
-export type CacheWorkerEnv = {
+export type CacheServerEnv = {
   VAULT_TOKEN: string;
   VAULT_ADDR?: string;
   VAULT_PROJECT?: string;
   VAULT_CONFIG?: string;
+  PORT: number;
 };
 
 /**
  * Non-recoverable misconfiguration at the env trust boundary. Signals to the
- * top-level Worker handler that the isolate must latch a fatal state and
- * refuse to serve traffic.
+ * top-level handler that the process must latch a fatal state and refuse to
+ * serve traffic.
  */
 export class ConfigurationError extends Error {
   readonly __configuration_error = true as const;
@@ -25,30 +26,60 @@ export class ConfigurationError extends Error {
   }
 }
 
-export function assertVaultTokenBinding(env: CacheWorkerEnv): string {
-  const raw = env.VAULT_TOKEN;
-  if (typeof raw !== 'string' || raw.trim().length === 0) {
+const DEFAULT_PORT = 8787;
+
+function readOptionalEnv(key: string): string | null {
+  const raw = process.env[key];
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function readPort(): number {
+  const raw = readOptionalEnv('PORT');
+  if (raw === null) return DEFAULT_PORT;
+  const port = Number.parseInt(raw, 10);
+  if (!Number.isFinite(port) || port <= 0 || port > 65_535) {
+    throw new ConfigurationError(`PORT must be a valid TCP port, got "${raw}"`);
+  }
+  return port;
+}
+
+export function readCacheServerEnv(): CacheServerEnv {
+  const vaultToken = readOptionalEnv('VAULT_TOKEN');
+  if (vaultToken === null) {
     throw new ConfigurationError(
-      'VAULT_TOKEN is required (non-empty string). Set this Worker secret or add it to .dev.vars; remaining config is loaded from Vault.'
+      'VAULT_TOKEN is required (non-empty string). Set it in the environment or add it to apps/api/.env; remaining config is loaded from Vault.'
     );
   }
-  return raw.trim();
+
+  return {
+    VAULT_TOKEN: vaultToken,
+    ...(readOptionalEnv('VAULT_ADDR') !== null
+      ? { VAULT_ADDR: readOptionalEnv('VAULT_ADDR')! }
+      : {}),
+    ...(readOptionalEnv('VAULT_PROJECT') !== null
+      ? { VAULT_PROJECT: readOptionalEnv('VAULT_PROJECT')! }
+      : {}),
+    ...(readOptionalEnv('VAULT_CONFIG') !== null
+      ? { VAULT_CONFIG: readOptionalEnv('VAULT_CONFIG')! }
+      : {}),
+    PORT: readPort(),
+  };
 }
 
-function readOptionalBinding(value: string | undefined): string | null {
-  if (typeof value !== 'string') return null;
-  const t = value.trim();
-  return t.length > 0 ? t : null;
+export function assertVaultToken(env: CacheServerEnv): string {
+  return env.VAULT_TOKEN;
 }
 
-export function readVaultScopeBindings(env: CacheWorkerEnv): {
+export function readVaultScopeBindings(env: CacheServerEnv): {
   addr: string | null;
   project: string | null;
   config: string | null;
 } {
   return {
-    addr: readOptionalBinding(env.VAULT_ADDR),
-    project: readOptionalBinding(env.VAULT_PROJECT),
-    config: readOptionalBinding(env.VAULT_CONFIG),
+    addr: env.VAULT_ADDR ?? null,
+    project: env.VAULT_PROJECT ?? null,
+    config: env.VAULT_CONFIG ?? null,
   };
 }

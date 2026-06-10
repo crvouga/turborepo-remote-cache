@@ -1,5 +1,5 @@
 /**
- * Post-deploy smoke test for the self-hosted Turborepo remote cache Worker.
+ * Post-deploy smoke test for the self-hosted Turborepo remote cache server.
  *
  * Requires TURBO_API and TURBO_TOKEN in env (via `vault run`).
  * CI: `bun run smoke:prd` after deploy.

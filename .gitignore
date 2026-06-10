@@ -2,7 +2,7 @@ node_modules/
 dist/
 .turbo/
 .wrangler/
-apps/api/.dev.vars
+apps/api/.env
 .env*.local
 .DS_Store
 *.tsbuildinfo

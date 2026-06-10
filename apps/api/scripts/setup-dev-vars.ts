@@ -9,10 +9,10 @@ import {
 } from '@scripts/vault-yaml-defaults';
 
 const apiRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outPath = join(apiRoot, '.dev.vars');
+const outPath = join(apiRoot, '.env');
 const tmpPath = `${outPath}.${process.pid}.tmp`;
 
-function encodeDevVarValue(value: string): string {
+function encodeEnvValue(value: string): string {
   return `"${value
     .replaceAll('\\', '\\\\')
     .replaceAll('"', '\\"')
@@ -84,10 +84,11 @@ function resolveScope(): VaultScope {
 async function main(): Promise<void> {
   const { token, addr, project, config } = resolveScope();
   const lines: string[] = [
-    `VAULT_TOKEN=${encodeDevVarValue(token)}`,
-    `VAULT_ADDR=${encodeDevVarValue(addr)}`,
-    `VAULT_PROJECT=${encodeDevVarValue(project)}`,
-    `VAULT_CONFIG=${encodeDevVarValue(config)}`,
+    `VAULT_TOKEN=${encodeEnvValue(token)}`,
+    `VAULT_ADDR=${encodeEnvValue(addr)}`,
+    `VAULT_PROJECT=${encodeEnvValue(project)}`,
+    `VAULT_CONFIG=${encodeEnvValue(config)}`,
+    'PORT="8787"',
   ];
 
   const body = `${lines.join('\n')}\n`;
@@ -95,7 +96,7 @@ async function main(): Promise<void> {
   renameSync(tmpPath, outPath);
 
   process.stdout.write(
-    `[setup-dev-vars] wrote .dev.vars (${lines.map((l) => l.split('=')[0]).join(', ')})\n`
+    `[setup-dev-vars] wrote .env (${lines.map((l) => l.split('=')[0]).join(', ')})\n`
   );
 }
 
