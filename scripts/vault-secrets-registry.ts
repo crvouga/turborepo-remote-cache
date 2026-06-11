@@ -10,6 +10,9 @@ export const CACHE_DNS_ZONE = 'chrisvouga.dev';
 /** Public origin for the self-hosted Turborepo remote cache server. */
 export const CACHE_PUBLIC_ORIGIN = `https://${CACHE_PUBLIC_HOSTNAME}`;
 
+/** GHCR repository for the cache server image (CI publishes here; Fly pulls from here). */
+export const GHCR_IMAGE_REPOSITORY = 'ghcr.io/crvouga/turborepo-remote-cache';
+
 export type SecretUsedBy = 'server' | 'client' | 'deploy';
 
 export type SecretDefinition = {
@@ -37,6 +40,7 @@ export const VaultSecretKey = {
   vaultToken: 'VAULT_TOKEN',
   flyApiToken: 'FLY_API_TOKEN',
   cloudflareApiToken: 'CLOUDFLARE_API_TOKEN',
+  ghcrReadToken: 'GHCR_READ_TOKEN',
 } as const;
 
 export const VAULT_SECRET_REGISTRY: readonly SecretDefinition[] = [
@@ -107,6 +111,12 @@ export const VAULT_SECRET_REGISTRY: readonly SecretDefinition[] = [
     required: true,
     usedBy: ['deploy'],
     hint: 'Cloudflare API token with Zone.DNS Edit for chrisvouga.dev',
+  },
+  {
+    key: VaultSecretKey.ghcrReadToken,
+    required: true,
+    usedBy: ['deploy'],
+    hint: 'GitHub PAT with read:packages so Fly can pull the GHCR deploy image',
   },
   {
     key: VaultSecretKey.turboCache,

@@ -1,11 +1,7 @@
-# Fly.io app config for the Turborepo remote cache server.
-# App creation, secrets, TLS cert, and deploy are handled by CI (see apps/api/scripts/fly-deploy.ts).
+# Fly.io runtime config only — image is published to GHCR and deployed via --image.
 
 app = 'turborepo-remote-cache'
 primary_region = 'lax'
-
-[build]
-  dockerfile = 'Dockerfile'
 
 [env]
   PORT = '8080'
