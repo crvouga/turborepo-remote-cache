@@ -22,13 +22,13 @@ primary_region = 'lax'
   processes = ['app']
 
   [[http_service.checks]]
-    grace_period = '15s'
-    interval = '30s'
+    grace_period = '60s'
+    interval = '15s'
     method = 'GET'
     path = '/health'
-    timeout = '5s'
+    timeout = '10s'
 
 [[vm]]
-  memory = '256mb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1

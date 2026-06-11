@@ -26,6 +26,8 @@ ENV PORT=8080
 
 COPY --from=build /app /app
 
+RUN chown -R bun:bun /app
+
 EXPOSE 8080
 
 USER bun

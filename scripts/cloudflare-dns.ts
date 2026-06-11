@@ -88,6 +88,11 @@ export async function resolveCloudflareZoneId(
   return zone.id;
 }
 
+function isPlausibleDnsName(name: string): boolean {
+  if (name === '@') return true;
+  return name.includes('.');
+}
+
 /** Parse `fly certs setup` text output into Cloudflare-ready DNS records. */
 export function parseFlyCertSetupOutput(output: string): FlyDnsRecord[] {
   const records: FlyDnsRecord[] = [];
@@ -97,10 +102,11 @@ export function parseFlyCertSetupOutput(output: string): FlyDnsRecord[] {
     const name = match[1]?.trim();
     const content = match[2]?.trim().replace(/\.$/, '');
     if (name === undefined || content === undefined) continue;
+    if (!isPlausibleDnsName(name)) continue;
     records.push({ type: 'CNAME', name, content });
   }
 
-  const txtRe = /TXT\s+([^\s]+)\s+(.+)/gi;
+  const txtRe = /TXT\s+(_[^\s]+)\s+(.+)/gi;
   for (const match of output.matchAll(txtRe)) {
     const name = match[1]?.trim();
     let content = match[2]?.trim() ?? '';

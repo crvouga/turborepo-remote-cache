@@ -122,6 +122,7 @@ export async function startServer(
   });
 
   Bun.serve({
+    hostname: '0.0.0.0',
     port: env.PORT,
     fetch: (request) => handler.fetch(request),
   });

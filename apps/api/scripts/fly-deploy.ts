@@ -28,13 +28,19 @@ type CommandResult = {
 function runCommand(
   cmd: string,
   args: string[],
-  options?: { inherit?: boolean }
+  options?: { inherit?: boolean; input?: string }
 ): CommandResult {
   const inherit = options?.inherit ?? false;
   const result = spawnSync(cmd, args, {
     encoding: 'utf8',
     env: process.env,
-    stdio: inherit ? 'inherit' : ['inherit', 'pipe', 'pipe'],
+    input: options?.input,
+    stdio:
+      options?.input !== undefined
+        ? ['pipe', inherit ? 'inherit' : 'pipe', inherit ? 'inherit' : 'pipe']
+        : inherit
+          ? 'inherit'
+          : ['inherit', 'pipe', 'pipe'],
   });
   return {
     status: result.status ?? 1,
@@ -47,7 +53,7 @@ function runOrExit(
   cmd: string,
   args: string[],
   label: string,
-  options?: { inherit?: boolean }
+  options?: { inherit?: boolean; input?: string }
 ): void {
   const result = runCommand(cmd, args, options);
   if (result.status === 0) return;
@@ -89,8 +95,9 @@ export function syncFlySecrets(app: string, vaultToken: string): void {
   );
   runOrExit(
     'flyctl',
-    ['secrets', 'set', `VAULT_TOKEN=${vaultToken}`, '--app', app],
-    'fly secrets set'
+    ['secrets', 'set', 'VAULT_TOKEN=-', '--app', app],
+    'fly secrets set',
+    { input: vaultToken }
   );
 }
 
@@ -159,6 +166,8 @@ export function deployFlyImage(app: string, image: string): void {
       image,
       '--ha=false',
       '--yes',
+      '--wait-timeout',
+      '300',
     ],
     'fly deploy'
   );

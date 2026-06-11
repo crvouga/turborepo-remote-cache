@@ -51,4 +51,20 @@ TXT _fly-ownership.turborepo fly-ownership=abc123
       content: 'fly-ownership=abc123',
     });
   });
+
+  test('ignores prose lines like "TXT record" from fly setup output', () => {
+    const output = `
+Add a TXT record to your DNS provider.
+TXT record _fly-ownership.turborepo value=abc123
+CNAME turborepo.chrisvouga.dev => turborepo-remote-cache.fly.dev
+`;
+
+    const records = parseFlyCertSetupOutput(output);
+    expect(records.some((record) => record.name === 'record')).toBe(false);
+    expect(records).toContainEqual({
+      type: 'CNAME',
+      name: 'turborepo.chrisvouga.dev',
+      content: 'turborepo-remote-cache.fly.dev',
+    });
+  });
 });
