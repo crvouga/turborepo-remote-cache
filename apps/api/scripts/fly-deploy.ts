@@ -180,12 +180,11 @@ export function fetchFlyCertSetup(app: string, hostname: string): string {
 }
 
 export async function syncCloudflareDns(app: string): Promise<void> {
-  const { cloudflareApiToken, cloudflareZoneId } = readCloudflareDeployConfig();
+  const { cloudflareApiToken } = readCloudflareDeployConfig();
   await syncCloudflareDnsFromFlySetup({
     flyApp: app,
     hostname: CACHE_PUBLIC_HOSTNAME,
     cloudflareApiToken,
-    ...(cloudflareZoneId !== undefined ? { cloudflareZoneId } : {}),
     fetchFlySetup: fetchFlyCertSetup,
   });
 }

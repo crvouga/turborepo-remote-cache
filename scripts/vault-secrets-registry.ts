@@ -37,7 +37,6 @@ export const VaultSecretKey = {
   vaultToken: 'VAULT_TOKEN',
   flyApiToken: 'FLY_API_TOKEN',
   cloudflareApiToken: 'CLOUDFLARE_API_TOKEN',
-  cloudflareZoneId: 'CLOUDFLARE_ZONE_ID',
 } as const;
 
 export const VAULT_SECRET_REGISTRY: readonly SecretDefinition[] = [
@@ -108,12 +107,6 @@ export const VAULT_SECRET_REGISTRY: readonly SecretDefinition[] = [
     required: true,
     usedBy: ['deploy'],
     hint: 'Cloudflare API token with Zone.DNS Edit for chrisvouga.dev',
-  },
-  {
-    key: VaultSecretKey.cloudflareZoneId,
-    required: false,
-    usedBy: ['deploy'],
-    hint: 'Cloudflare zone ID (optional; looked up from CACHE_DNS_ZONE when unset)',
   },
   {
     key: VaultSecretKey.turboCache,

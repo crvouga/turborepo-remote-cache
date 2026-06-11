@@ -18,7 +18,6 @@ export type SyncCloudflareDnsOptions = {
   readonly hostname?: string;
   readonly zone?: string;
   readonly cloudflareApiToken: string;
-  readonly cloudflareZoneId?: string;
   readonly fetchFlySetup: (app: string, hostname: string) => string;
 };
 
@@ -75,13 +74,8 @@ async function cloudflareRequest<T extends { success?: boolean }>(
 
 export async function resolveCloudflareZoneId(
   token: string,
-  zoneName: string,
-  zoneIdOverride?: string
+  zoneName: string
 ): Promise<string> {
-  if (zoneIdOverride !== undefined && zoneIdOverride.trim().length > 0) {
-    return zoneIdOverride.trim();
-  }
-
   const data = await cloudflareRequest<{
     success: boolean;
     result: Array<{ id: string; name: string }>;
@@ -274,8 +268,7 @@ export async function syncCloudflareDnsFromFlySetup(
 
   const zoneId = await resolveCloudflareZoneId(
     options.cloudflareApiToken,
-    zone,
-    options.cloudflareZoneId
+    zone
   );
 
   process.stdout.write(
@@ -289,7 +282,6 @@ export async function syncCloudflareDnsFromFlySetup(
 
 export function readCloudflareDeployConfig(): {
   cloudflareApiToken: string;
-  cloudflareZoneId?: string;
 } {
   const cloudflareApiToken = process.env['CLOUDFLARE_API_TOKEN']?.trim() ?? '';
   if (cloudflareApiToken.length === 0) {
@@ -298,11 +290,5 @@ export function readCloudflareDeployConfig(): {
     );
   }
 
-  const zoneId = process.env['CLOUDFLARE_ZONE_ID']?.trim();
-  return {
-    cloudflareApiToken,
-    ...(zoneId !== undefined && zoneId.length > 0
-      ? { cloudflareZoneId: zoneId }
-      : {}),
-  };
+  return { cloudflareApiToken };
 }
