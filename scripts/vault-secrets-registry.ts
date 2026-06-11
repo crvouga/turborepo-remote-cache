@@ -10,8 +10,8 @@ export const CACHE_DNS_ZONE = 'chrisvouga.dev';
 /** Public origin for the self-hosted Turborepo remote cache server. */
 export const CACHE_PUBLIC_ORIGIN = `https://${CACHE_PUBLIC_HOSTNAME}`;
 
-/** GHCR repository for the cache server image (CI publishes here; Fly pulls from here). */
-export const GHCR_IMAGE_REPOSITORY = 'ghcr.io/crvouga/turborepo-remote-cache';
+/** GHCR repository for the cache server image (CI publishes via chrisvouga.dev reusable workflow). */
+export const GHCR_IMAGE_REPOSITORY = 'ghcr.io/crvouga/chrisvouga-turborepo';
 
 export type SecretUsedBy = 'server' | 'client' | 'deploy';
 

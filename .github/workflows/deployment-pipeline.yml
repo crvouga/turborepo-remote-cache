@@ -1,21 +1,15 @@
-# CI checks on every push/PR; deploy on main runs in parallel (no check gate).
-# CI authenticates to Vault via GitHub OIDC (no stored token).
+# CI checks on every push/PR. Image publish is in publish-image.yml; deploy is via chrisvouga.dev.
 name: Deployment Pipeline
 
 permissions:
   contents: read
   id-token: write
-  packages: write
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
-
-env:
-  FLY_APP: turborepo-remote-cache
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
   check:
@@ -49,9 +43,7 @@ jobs:
             secret/data/personal/dev B2_S3_ACCESS_KEY_ID | B2_S3_ACCESS_KEY_ID ;
             secret/data/personal/dev B2_S3_SECRET_ACCESS_KEY | B2_S3_SECRET_ACCESS_KEY ;
             secret/data/personal/dev B2_BUCKET | B2_BUCKET ;
-            secret/data/personal/dev VAULT_TOKEN | VAULT_TOKEN ;
-            secret/data/personal/dev FLY_API_TOKEN | FLY_API_TOKEN ;
-            secret/data/personal/dev CLOUDFLARE_API_TOKEN | CLOUDFLARE_API_TOKEN
+            secret/data/personal/dev VAULT_TOKEN | VAULT_TOKEN
       - name: Verify Vault secrets (dev)
         env:
           CI: true
@@ -62,13 +54,10 @@ jobs:
       - name: Turbo CI (format, tc, lint, test, build)
         run: bun run check
 
-  deploy:
+  smoke:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    concurrency:
-      group: deploy-${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: false
-    timeout-minutes: 20
+    if: github.event_name == 'workflow_dispatch'
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -94,71 +83,11 @@ jobs:
             secret/data/personal/prd B2_S3_ACCESS_KEY_ID | B2_S3_ACCESS_KEY_ID ;
             secret/data/personal/prd B2_S3_SECRET_ACCESS_KEY | B2_S3_SECRET_ACCESS_KEY ;
             secret/data/personal/prd B2_BUCKET | B2_BUCKET ;
-            secret/data/personal/prd VAULT_TOKEN | VAULT_TOKEN ;
-            secret/data/personal/prd FLY_API_TOKEN | FLY_API_TOKEN ;
-            secret/data/personal/prd CLOUDFLARE_API_TOKEN | CLOUDFLARE_API_TOKEN
-      - name: Verify Vault secrets (prd)
+            secret/data/personal/prd VAULT_TOKEN | VAULT_TOKEN
+      - name: Smoke test remote cache
         env:
           CI: true
           GITHUB_ACTIONS: true
           VAULT_CONFIG: prd
           VAULT_PROJECT: personal
-        run: bun run scripts/check-vault-secrets.ts
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-      - name: Ensure GHCR image is publicly pullable
-        env:
-          GH_TOKEN: ${{ github.token }}
-          IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          PACKAGE: ${{ github.event.repository.name }}
-          OWNER: ${{ github.repository_owner }}
-          OWNER_TYPE: ${{ github.event.repository.owner.type }}
-        run: |
-          set +e
-          if [ "$OWNER_TYPE" = "Organization" ]; then
-            gh api --method PATCH "/orgs/${OWNER}/packages/container/${PACKAGE}" \
-              -f visibility=public
-          else
-            gh api --method PATCH "/user/packages/container/${PACKAGE}" \
-              -f visibility=public
-          fi
-          set -e
-
-          docker logout ghcr.io 2>/dev/null || true
-          if docker pull "$IMAGE"; then
-            echo "GHCR image is publicly pullable."
-            exit 0
-          fi
-
-          echo "::error::GHCR image is not public. GITHUB_TOKEN cannot always change package visibility."
-          echo "Open https://github.com/${OWNER}/${PACKAGE}/pkgs/container/${PACKAGE}/settings"
-          echo "Set Package visibility to Public, then re-run the deploy workflow."
-          exit 1
-      - name: Setup flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy to Fly.io
-        env:
-          CI: true
-          GITHUB_ACTIONS: true
-          DEPLOY_IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
-        run: bun run --filter @apps/api deploy
-      - name: Smoke test remote cache
-        env:
-          CI: true
-          GITHUB_ACTIONS: true
         run: bun run scripts/smoke-test-cache.ts
