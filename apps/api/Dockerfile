@@ -17,6 +17,7 @@ RUN bun install --frozen-lockfile
 COPY tsconfig.json turbo.json ./
 COPY apps/api ./apps/api
 COPY pkgs ./pkgs
+COPY scripts ./scripts
 
 FROM oven/bun:1.3.11-slim AS runtime
 WORKDIR /app
